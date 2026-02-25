@@ -13,6 +13,8 @@ class BaseModel:
         for f in fields(self):
             v = getattr(self, f.name)
             out[f.name] = v.value if isinstance(v, Enum) else v
+        if self.__pk__ and self.__pk__ not in out:
+            out[self.__pk__] = getattr(self, self.__pk__, None)
         return out
 
     def save(self, update_fields: list[str] | None = None):
