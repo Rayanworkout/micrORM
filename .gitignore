@@ -2,4 +2,5 @@ uv.lock
 .venv/
 __pycache__/
 *.sqlite3
+*.sqlite
 todo.txt

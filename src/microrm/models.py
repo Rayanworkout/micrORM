@@ -175,6 +175,11 @@ class BaseModel:
         return cls._query(filters)
 
     @classmethod
+    def all(cls):
+        """Return all rows from this model table as model instances."""
+        return cls._query({})
+
+    @classmethod
     def get(
         cls, raise_if_not_found: bool = False, **filters
     ) -> Any | None | DoesNotExist:

@@ -1,7 +1,7 @@
-from example_project.models import User
+from database import db
 
-user = User(name="Alice", email="alice@example.com")
-user.save()
+db.create_user(name="rayan")
 
-# found = User.get(id=4, raise_if_not_found=False)
-# print(found)
+users = db.get_all_users()
+
+print(f"Fetched {len(users)} users. {users}")
