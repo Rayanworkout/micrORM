@@ -1,12 +1,7 @@
-from microrm import SQLiteDatabase
 from models import User
 
+user = User(name="Alice", email="alice@example.com")
+user.save()
 
-db = SQLiteDatabase(db_name="examples.sqlite3")
-# user = User(name="Alice", email="alice@example.com")
-
-db.register_model(User)
-# user.save()
-
-found = User.get(id=1)
-print(found)
+# found = User.get(id=4, raise_if_not_found=False)
+# print(found)

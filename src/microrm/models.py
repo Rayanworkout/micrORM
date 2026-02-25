@@ -11,48 +11,110 @@ class BaseModel:
         pass
 
     __table__: str
-    __pk__: str | None = "id"
-    __unique__: tuple[str, ...] | None = None
     _db = None  # inject your SQLiteDatabase/AttachmentsDatabase
+    __microrm_registered__ = False
+
+    class Meta:
+        database = None
+        pk = "id"
+        unique = None
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        if "__pk__" in cls.__dict__ or "__unique__" in cls.__dict__:
+            raise TypeError(
+                "Use class Meta directives (`pk`, `unique`) instead of `__pk__` / `__unique__`."
+            )
+
+        meta = getattr(cls, "Meta", None)
+        cls._db = getattr(meta, "database", None)
+        cls.__microrm_registered__ = False
+
+    @classmethod
+    def _meta_pk(cls) -> str | None:
+        pk = getattr(getattr(cls, "Meta", None), "pk", "id")
+        if pk is not None and not isinstance(pk, str):
+            raise TypeError("Meta.pk must be a string or None.")
+        return pk
+
+    @classmethod
+    def _meta_unique(cls) -> tuple[str, ...]:
+        unique = getattr(getattr(cls, "Meta", None), "unique", None)
+        if unique is None:
+            return ()
+        if isinstance(unique, str):
+            return (unique,)
+        if isinstance(unique, (tuple, list)) and all(
+            isinstance(c, str) for c in unique
+        ):
+            return tuple(unique)
+        raise TypeError(
+            "Meta.unique must be None, a string, or a tuple/list of strings."
+        )
+
+    @classmethod
+    def _meta_database(cls):
+        meta_db = getattr(getattr(cls, "Meta", None), "database", None)
+        if meta_db is not None and meta_db is not cls._db:
+            cls._db = meta_db
+            cls.__microrm_registered__ = False
+        return cls._db
+
+    @classmethod
+    def _ensure_registered(cls):
+        db = cls._meta_database()
+        if db is None:
+            raise RuntimeError(
+                "No database configured for this model. Set `class Meta: database = db`."
+            )
+        if not cls.__microrm_registered__:
+            db._register_model(cls)
+            cls.__microrm_registered__ = True
 
     def _as_db_dict(self):
         out = {}
+        primary_key = self.__class__._meta_pk()
         for f in fields(self):
             v = getattr(self, f.name)
             out[f.name] = v.value if isinstance(v, Enum) else v
-        if self.__pk__ and self.__pk__ not in out:
-            out[self.__pk__] = getattr(self, self.__pk__, None)
+        if primary_key and primary_key not in out:
+            out[primary_key] = getattr(self, primary_key, None)
         return out
 
     def save(self, update_fields: list[str] | None = None):
+        self.__class__._ensure_registered()
+
+        primary_key = self.__class__._meta_pk()
+        unique_columns = self.__class__._meta_unique()
         data = self._as_db_dict()
 
         # PK style (Django-like)
-        if self.__pk__ and data.get(self.__pk__) is not None:
-            cols = update_fields or [c for c in data if c != self.__pk__]
+        if primary_key and data.get(primary_key) is not None:
+            cols = update_fields or [c for c in data if c != primary_key]
             set_sql = ", ".join(f"{c}=?" for c in cols)
-            params = tuple(data[c] for c in cols) + (data[self.__pk__],)
-            q = f"UPDATE {self.__table__} SET {set_sql} WHERE {self.__pk__}=?"
+            params = tuple(data[c] for c in cols) + (data[primary_key],)
+            q = f"UPDATE {self.__table__} SET {set_sql} WHERE {primary_key}=?"
             self._db.execute_query(q, params)
             return self
 
         # Unique tuple style (your FileToSend today)
-        if self.__unique__:
+        if unique_columns:
             cols = list(data.keys())
             q = f"""
             INSERT INTO {self.__table__} ({", ".join(cols)})
             VALUES ({", ".join("?" for _ in cols)})
-            ON CONFLICT({", ".join(self.__unique__)}) DO NOTHING
+            ON CONFLICT({", ".join(unique_columns)}) DO NOTHING
             """
             self._db.execute_query(q, tuple(data[c] for c in cols))
             return self
 
         # Plain insert
-        cols = [c for c in data if c != self.__pk__]
+        cols = [c for c in data if c != primary_key]
         q = f"INSERT INTO {self.__table__} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})"
         ok, _, last_id = self._db.execute_query(q, tuple(data[c] for c in cols))
-        if ok and self.__pk__:
-            setattr(self, self.__pk__, last_id)
+        if ok and primary_key:
+            setattr(self, primary_key, last_id)
         return self
 
     @classmethod
@@ -62,8 +124,9 @@ class BaseModel:
         row_data = dict(zip(select_columns, row))
         instance = cls(**{name: row_data[name] for name in model_field_names})
 
-        if cls.__pk__ and cls.__pk__ not in set(model_field_names):
-            setattr(instance, cls.__pk__, row_data[cls.__pk__])
+        primary_key = cls._meta_pk()
+        if primary_key and primary_key not in set(model_field_names):
+            setattr(instance, primary_key, row_data[primary_key])
 
         return instance
 
@@ -74,25 +137,23 @@ class BaseModel:
         Used internally by `filter()` and `get()` to avoid duplicating SQL
         construction and row-to-instance mapping logic.
         """
-        if cls._db is None:
-            raise RuntimeError(
-                "Model is not registered. Call db.register_model(YourModelClass) first."
-            )
+        cls._ensure_registered()
+        primary_key = cls._meta_pk()
 
         model_field_names = [f.name for f in fields(cls)]
         model_field_name_set = set(model_field_names)
 
         valid_filter_fields = set(model_field_name_set)
-        if cls.__pk__:
-            valid_filter_fields.add(cls.__pk__)
+        if primary_key:
+            valid_filter_fields.add(primary_key)
 
         unknown_filters = [name for name in filters if name not in valid_filter_fields]
         if unknown_filters:
             raise ValueError(f"Unknown filter field(s): {', '.join(unknown_filters)}")
 
         select_columns = list(model_field_names)
-        if cls.__pk__ and cls.__pk__ not in model_field_name_set:
-            select_columns = [cls.__pk__, *select_columns]
+        if primary_key and primary_key not in model_field_name_set:
+            select_columns = [primary_key, *select_columns]
 
         where_sql = ""
         params = ()

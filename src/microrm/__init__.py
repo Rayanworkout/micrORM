@@ -106,10 +106,30 @@ class SQLiteDatabase:
         model_cls.__table__ = table_name
         model_cls._db = self  # enable model methods to call database methods
 
-        primary_key = getattr(
-            model_cls, "__pk__", "id"
-        )  # We use the __pk__ attribute if set
-        unique_columns = tuple(getattr(model_cls, "__unique__", None) or ())
+        if "__pk__" in model_cls.__dict__ or "__unique__" in model_cls.__dict__:
+            raise TypeError(
+                "Use class Meta directives (`pk`, `unique`) instead of `__pk__` / `__unique__`."
+            )
+
+        meta = getattr(model_cls, "Meta", None)
+        primary_key = getattr(meta, "pk", "id")
+        unique_columns_raw = getattr(meta, "unique", None)
+
+        if primary_key is not None and not isinstance(primary_key, str):
+            raise TypeError("Meta.pk must be a string or None.")
+
+        if unique_columns_raw is None:
+            unique_columns = ()
+        elif isinstance(unique_columns_raw, str):
+            unique_columns = (unique_columns_raw,)
+        elif isinstance(unique_columns_raw, (tuple, list)) and all(
+            isinstance(c, str) for c in unique_columns_raw
+        ):
+            unique_columns = tuple(unique_columns_raw)
+        else:
+            raise TypeError(
+                "Meta.unique must be None, a string, or a tuple/list of strings."
+            )
 
         model_fields = fields(model_cls)
         field_names = {f.name for f in model_fields}
@@ -151,6 +171,14 @@ class SQLiteDatabase:
 
         return self.__create_table(table_name, column_defs)
 
+    def _register_model(self, model_cls: type):
+        if not isinstance(model_cls, type) or not is_dataclass(model_cls):
+            raise TypeError(
+                "The SQLiteDatabase.register_model() method expects a dataclass model class."
+            )
+        result = self.__create_tables_from_model_class(model_cls)
+        setattr(model_cls, "__microrm_registered__", True)
+        return result
     ############ PUBLIC ############
     def close(self):
         self.__close_connection()
@@ -182,9 +210,3 @@ class SQLiteDatabase:
             print(f"An error occurred: {e}")
             return None
 
-    def register_model(self, model_cls: type):
-        if not isinstance(model_cls, type) or not is_dataclass(model_cls):
-            raise TypeError(
-                "The SQLiteDatabase.register_model() method expects a dataclass model class."
-            )
-        return self.__create_tables_from_model_class(model_cls)
