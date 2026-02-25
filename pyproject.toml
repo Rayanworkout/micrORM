@@ -1,0 +1,14 @@
+[project]
+name = "microrm"
+version = "0.1.0"
+description = "A tiny Python ORM with the minimal requirements to interact with a SQLite database using Python classes."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+microrm = "microrm:main"
+
+[build-system]
+requires = ["uv_build>=0.9.5,<0.10.0"]
+build-backend = "uv_build"
