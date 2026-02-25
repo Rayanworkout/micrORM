@@ -166,7 +166,7 @@ class SQLiteDatabase:
             print(f"An error occurred: {e}")
             return None
 
-    def create_table(self, table_name: str, columns: dict) -> Tuple[bool, int, int]:
+    def __create_table(self, table_name: str, columns: dict) -> Tuple[bool, int, int]:
         """
         Crée une table dans la base de données.
 
@@ -184,23 +184,6 @@ class SQLiteDatabase:
         query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns_str})"
 
         return self.execute_query(query)
-
-    def insert_row(self, table_name, data):
-        """
-        Insère une ligne dans une table.
-
-        Arguments :
-            table_name (str) : Le nom de la table dans laquelle insérer les données.
-            data (dict) : Dictionnaire contenant les noms de colonnes en tant que clés
-                        et les valeurs correspondantes à insérer.
-
-        Retourne :
-            Tuple[bool, int, int] : Indique si l'insertion a été réalisée avec succès.
-        """
-        columns = ", ".join(data.keys())
-        placeholders = ", ".join(["?"] * len(data))
-        query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-        self.execute_query(query, tuple(data.values()))
 
     def __create_entry_from_model(self, entry: Any, table_name) -> Tuple[bool, int, int]:
         """
@@ -244,3 +227,5 @@ class SQLiteDatabase:
         # Execute the query with the parameters
         return self.execute_query(query, params)
 
+    def __create_tables_from_model_instance(self, instance: Any):
+        pass
