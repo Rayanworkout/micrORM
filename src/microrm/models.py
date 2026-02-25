@@ -3,6 +3,12 @@ from enum import Enum
 
 
 class BaseModel:
+    class DoesNotExist(LookupError):
+        pass
+
+    class MultipleObjectsReturned(LookupError):
+        pass
+
     __table__: str
     __pk__: str | None = "id"
     __unique__: tuple[str, ...] | None = None
@@ -47,3 +53,42 @@ class BaseModel:
         if ok and self.__pk__:
             setattr(self, self.__pk__, last_id)
         return self
+
+    @classmethod
+    def get(cls, **filters):
+        if cls._db is None:
+            raise RuntimeError("Model is not registered. Call db.register_model(YourModelClass) first.")
+        if not filters:
+            raise ValueError("get() requires at least one keyword filter.")
+
+        model_field_names = [f.name for f in fields(cls)]
+        model_field_name_set = set(model_field_names)
+
+        valid_filter_fields = set(model_field_name_set)
+        if cls.__pk__:
+            valid_filter_fields.add(cls.__pk__)
+
+        unknown_filters = [name for name in filters if name not in valid_filter_fields]
+        if unknown_filters:
+            raise ValueError(f"Unknown filter field(s): {', '.join(unknown_filters)}")
+
+        select_columns = list(model_field_names)
+        if cls.__pk__ and cls.__pk__ not in model_field_name_set:
+            select_columns = [cls.__pk__, *select_columns]
+
+        where_sql = " AND ".join(f"{name}=?" for name in filters)
+        query = f"SELECT {', '.join(select_columns)} FROM {cls.__table__} WHERE {where_sql} LIMIT 2"
+        rows = cls._db.fetch_all(query, tuple(filters.values()))
+
+        if not rows:
+            raise cls.DoesNotExist(f"{cls.__name__} matching query does not exist.")
+        if len(rows) > 1:
+            raise cls.MultipleObjectsReturned(f"get() returned more than one {cls.__name__}.")
+
+        row_data = dict(zip(select_columns, rows[0]))
+        instance = cls(**{name: row_data[name] for name in model_field_names})
+
+        if cls.__pk__ and cls.__pk__ not in model_field_name_set:
+            setattr(instance, cls.__pk__, row_data[cls.__pk__])
+
+        return instance

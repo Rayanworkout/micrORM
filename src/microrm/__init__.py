@@ -152,6 +152,36 @@ class SQLiteDatabase:
         return self.__create_table(table_name, column_defs)
 
     ############ PUBLIC ############
+    def close(self):
+        self.__close_connection()
+
+    def execute_query(self, query, params=None) -> Tuple[bool, int, int]:
+        return self.__execute_query(query, params)
+
+    def fetch_all(self, query, params=None):
+        try:
+            cursor = self.connection.cursor()
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            return cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"An error occurred: {e}")
+            return []
+
+    def fetch_one(self, query, params=None):
+        try:
+            cursor = self.connection.cursor()
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            return cursor.fetchone()
+        except sqlite3.Error as e:
+            print(f"An error occurred: {e}")
+            return None
+
     def register_model(self, model_cls: type):
         if not isinstance(model_cls, type) or not is_dataclass(model_cls):
             raise TypeError(
