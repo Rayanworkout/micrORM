@@ -55,11 +55,26 @@ class BaseModel:
         return self
 
     @classmethod
-    def get(cls, **filters): # **filters = **kwargs
+    def _build_model_instance_from_row(
+        cls, row: tuple, select_columns: list[str], model_field_names: list[str]
+    ):
+        row_data = dict(zip(select_columns, row))
+        instance = cls(**{name: row_data[name] for name in model_field_names})
+
+        if cls.__pk__ and cls.__pk__ not in set(model_field_names):
+            setattr(instance, cls.__pk__, row_data[cls.__pk__])
+
+        return instance
+
+    @classmethod
+    def _query(cls, filters: dict[str, object], limit: int | None = None):
+        """Run a SELECT on this model table and return matching model instances.
+
+        Used internally by `filter()` and `get()` to avoid duplicating SQL
+        construction and row-to-instance mapping logic.
+        """
         if cls._db is None:
             raise RuntimeError("Model is not registered. Call db.register_model(YourModelClass) first.")
-        if not filters:
-            raise ValueError("get() requires at least one keyword filter.")
 
         model_field_names = [f.name for f in fields(cls)]
         model_field_name_set = set(model_field_names)
@@ -76,20 +91,33 @@ class BaseModel:
         if cls.__pk__ and cls.__pk__ not in model_field_name_set:
             select_columns = [cls.__pk__, *select_columns]
 
-        # We chain the filters depending on all args provided
-        where_sql = " AND ".join(f"{name}=?" for name in filters)
-        query = f"SELECT {', '.join(select_columns)} FROM {cls.__table__} WHERE {where_sql} LIMIT 2"
-        rows = cls._db.fetch_all(query, tuple(filters.values()))
+        where_sql = ""
+        params = ()
+        if filters:
+            where_sql = " WHERE " + " AND ".join(f"{name}=?" for name in filters)
+            params = tuple(filters.values())
 
-        if not rows:
+        limit_sql = f" LIMIT {limit}" if limit is not None else ""
+        query = f"SELECT {', '.join(select_columns)} FROM {cls.__table__}{where_sql}{limit_sql}"
+        rows = cls._db.fetch_all(query, params if params else None)
+
+        return [
+            cls._build_model_instance_from_row(row, select_columns, model_field_names)
+            for row in rows
+        ]
+
+    @classmethod
+    def filter(cls, **filters):
+        return cls._query(filters)
+
+    @classmethod
+    def get(cls, **filters):
+        if not filters:
+            raise ValueError("get() requires at least one keyword filter.")
+
+        matches = cls._query(filters, limit=2)
+        if not matches:
             raise cls.DoesNotExist(f"{cls.__name__} matching query does not exist.")
-        if len(rows) > 1:
+        if len(matches) > 1:
             raise cls.MultipleObjectsReturned(f"get() returned more than one {cls.__name__}.")
-
-        row_data = dict(zip(select_columns, rows[0]))
-        instance = cls(**{name: row_data[name] for name in model_field_names})
-
-        if cls.__pk__ and cls.__pk__ not in model_field_name_set:
-            setattr(instance, cls.__pk__, row_data[cls.__pk__])
-
-        return instance
+        return matches[0]
