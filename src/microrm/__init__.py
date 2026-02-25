@@ -178,7 +178,9 @@ class MicrORMDatabase:
     def close(self):
         self.__close_connection()
 
-    def execute_query(self, query, params=None) -> Tuple[bool, int, int]:
+    def execute_query(
+        self, query, params=None, raise_on_error: bool = False
+    ) -> Tuple[bool, int, int]:
         """Execute a write/query statement and commit changes.
 
         Example:
@@ -193,6 +195,8 @@ class MicrORMDatabase:
             self.connection.commit()
             return True, cursor.rowcount, cursor.lastrowid
         except sqlite3.Error as e:
+            if raise_on_error:
+                raise
             print(f"An error occurred executing query: {e}")
             return False, cursor.rowcount, cursor.lastrowid
 

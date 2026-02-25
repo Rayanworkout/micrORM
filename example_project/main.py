@@ -1,7 +1,6 @@
 from database import db
 
-
-for user in [
+user_names = [
     "Lucas",
     "Emma",
     "Liam",
@@ -22,9 +21,10 @@ for user in [
     "Anna",
     "Raphaël",
     "Clara",
-]:
-    # continue
-    db.create_user(name=user, email=f"{user}@gmail.com")
+]
+
+for user in user_names:
+    db.create_user(name=user, email=f"{user}@gmail.com", ignore_conflicts=True)
 
 users = db.get_all_users()
 

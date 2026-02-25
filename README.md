@@ -64,7 +64,6 @@ from microrm.models import BaseModel
 
 db = SQLiteDatabase(db_name="hello_world.sqlite")
 
-
 @dataclass
 class User(BaseModel):
     name: str
@@ -79,6 +78,9 @@ user = User(name="Alice", email="alice@example.com").save()
 all_users = User.all()
 filtered = User.filter(name="Alice")
 found = User.get(id=user.id)
+
+# Optional: ignore unique conflicts on insert
+User(name="Alice", email="alice@example.com").save(ignore_conflicts=True)
 ```
 
 ## Optional: Extend the Database Class

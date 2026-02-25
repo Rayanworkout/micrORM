@@ -4,7 +4,7 @@ from microrm import MicrORMDatabase
 
 
 class MyDatabase(MicrORMDatabase):
-    def __init__(self, db_name: str = "db.sqlite3", db_path: str=None):
+    def __init__(self, db_name: str = "db.sqlite3", db_path: str = None):
         super().__init__(db_name, db_path)
 
     def get_all_users(self, limit: int = None):
@@ -18,10 +18,12 @@ class MyDatabase(MicrORMDatabase):
 
             return users[:limit]
 
-    def create_user(self, name: str, email: Optional[str] = None):
+    def create_user(
+        self, name: str, email: Optional[str] = None, ignore_conflicts: bool = False
+    ):
         from models import User
 
-        return User(name=name, email=email).save()
+        return User(name=name, email=email).save(ignore_conflicts=ignore_conflicts)
 
 
 # Shared database instance used by models and application code.

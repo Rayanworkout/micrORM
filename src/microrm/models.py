@@ -82,7 +82,9 @@ class BaseModel:
             out[primary_key] = getattr(self, primary_key, None)
         return out
 
-    def save(self, update_fields: list[str] | None = None):
+    def save(
+        self, update_fields: list[str] | None = None, ignore_conflicts: bool = False
+    ):
         self.__class__._ensure_registered()
 
         primary_key = self.__class__._meta_pk()
@@ -100,12 +102,23 @@ class BaseModel:
 
         if unique_columns:
             cols = list(data.keys())
-            q = f"""
-            INSERT INTO {self.__table__} ({", ".join(cols)})
-            VALUES ({", ".join("?" for _ in cols)})
-            ON CONFLICT({", ".join(unique_columns)}) DO NOTHING
-            """
-            self._db.execute_query(q, tuple(data[c] for c in cols))
+            if ignore_conflicts:
+                q = f"""
+                INSERT INTO {self.__table__} ({", ".join(cols)})
+                VALUES ({", ".join("?" for _ in cols)})
+                ON CONFLICT({", ".join(unique_columns)}) DO NOTHING
+                """
+                ok, _, last_id = self._db.execute_query(q, tuple(data[c] for c in cols))
+                if ok and primary_key and data.get(primary_key) is None:
+                    setattr(self, primary_key, last_id)
+                return self
+
+            q = f"INSERT INTO {self.__table__} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})"
+            ok, _, last_id = self._db.execute_query(
+                q, tuple(data[c] for c in cols), raise_on_error=True
+            )
+            if ok and primary_key and data.get(primary_key) is None:
+                setattr(self, primary_key, last_id)
             return self
 
         # Plain insert
