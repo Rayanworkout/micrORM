@@ -12,3 +12,4 @@ class User(BaseModel):
 
     class Meta:
         database = db
+        unique = "name"

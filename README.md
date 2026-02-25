@@ -10,7 +10,7 @@ from typing import Optional
 from microrm import SQLiteDatabase
 from microrm.models import BaseModel
 
-db = SQLiteDatabase(db_name="examples.sqlite3")
+db = SQLiteDatabase(db_name="example.sqlite3")
 
 
 @dataclass
@@ -52,22 +52,61 @@ Examples of operations that trigger table creation:
 - `Model.get(...)`
 - `Model.filter(...)`
 
-You do not need to call a manual `register_model()` in normal usage.
 
 ## Basic Usage
 
 ```python
-# Insert
-user = User(name="Alice", email="alice@example.com")
-user.save()
+from dataclasses import dataclass
+from typing import Optional
 
-# Get one row
+from microrm import SQLiteDatabase
+from microrm.models import BaseModel
+
+db = SQLiteDatabase(db_name="hello_world.sqlite")
+
+
+@dataclass
+class User(BaseModel):
+    name: str
+    email: Optional[str] = None
+
+    class Meta:
+        database = db
+
+
+# ORM methods (core usage)
+user = User(name="Alice", email="alice@example.com").save()
+all_users = User.all()
+filtered = User.filter(name="Alice")
 found = User.get(id=user.id)
-print(found)
+```
 
-# Filter rows
-rows = User.filter(name="Alice")
-print(rows)
+## Optional: Extend the Database Class
+
+If you need app-specific helpers, subclass `MicrORMDatabase` and add your own methods.
+
+```python
+from typing import Optional
+
+from microrm import MicrORMDatabase
+
+
+class MyDatabase(MicrORMDatabase):
+    def create_user(self, name: str, email: Optional[str] = None):
+        from models import User
+        return User(name=name, email=email).save()
+
+    def get_all_users(self, limit: int | None = None):
+        from models import User
+        users = User.all()
+        return users if limit is None else users[:limit]
+
+
+db = MyDatabase(db_name="hello_world.sqlite")
+
+# Use custom DB helpers
+db.create_user(name="Bob", email="bob@example.com")
+users = db.get_all_users(limit=10)
 ```
 
 ## Meta Directives

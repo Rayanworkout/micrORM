@@ -11,7 +11,7 @@ class BaseModel:
         pass
 
     __table__: str
-    _db = None  # inject your SQLiteDatabase/AttachmentsDatabase
+    _db = None  # inject the MicrORMDatabase subclass instance
     __microrm_registered__ = False
 
     class Meta:
@@ -98,7 +98,6 @@ class BaseModel:
             self._db.execute_query(q, params)
             return self
 
-        # Unique tuple style (your FileToSend today)
         if unique_columns:
             cols = list(data.keys())
             q = f"""
