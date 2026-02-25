@@ -55,7 +55,7 @@ class BaseModel:
         return self
 
     @classmethod
-    def get(cls, **filters):
+    def get(cls, **filters): # **filters = **kwargs
         if cls._db is None:
             raise RuntimeError("Model is not registered. Call db.register_model(YourModelClass) first.")
         if not filters:
@@ -76,6 +76,7 @@ class BaseModel:
         if cls.__pk__ and cls.__pk__ not in model_field_name_set:
             select_columns = [cls.__pk__, *select_columns]
 
+        # We chain the filters depending on all args provided
         where_sql = " AND ".join(f"{name}=?" for name in filters)
         query = f"SELECT {', '.join(select_columns)} FROM {cls.__table__} WHERE {where_sql} LIMIT 2"
         rows = cls._db.fetch_all(query, tuple(filters.values()))
