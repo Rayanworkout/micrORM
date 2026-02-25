@@ -120,17 +120,18 @@ class SQLiteDatabase:
             return "TEXT"
         return "TEXT"
 
-    def __create_tables_from_model_instance(self, instance: Any):
-        model_cls = instance.__class__
+    def __create_tables_from_model_class(self, model_cls: type):
         # We infer the table name from the __table__ attribute if it exists, otherwise we use model name
         table_name = getattr(model_cls, "__table__", None) or model_cls.__name__.lower()
         model_cls.__table__ = table_name
-        model_cls._db = self # enable model methods to call database methods
+        model_cls._db = self  # enable model methods to call database methods
 
-        primary_key = getattr(model_cls, "__pk__", "id") # We use the __pk__ attribute if set
+        primary_key = getattr(
+            model_cls, "__pk__", "id"
+        )  # We use the __pk__ attribute if set
         unique_columns = tuple(getattr(model_cls, "__unique__", None) or ())
 
-        model_fields = fields(instance)
+        model_fields = fields(model_cls)
         field_names = {f.name for f in model_fields}
 
         # If no __pk__ is mentionned, we use the implicit id field as pk
@@ -170,7 +171,9 @@ class SQLiteDatabase:
 
         return self.__create_table(table_name, column_defs)
 
-    def register_model(self, instance: Any):
-        if not is_dataclass(instance):
-            raise TypeError("The SQLiteDatabase.register_model() method expects a dataclass instance.")
-        return self.__create_tables_from_model_instance(instance)
+    def register_model(self, model_cls: type):
+        if not isinstance(model_cls, type) or not is_dataclass(model_cls):
+            raise TypeError(
+                "The SQLiteDatabase.register_model() method expects a dataclass model class."
+            )
+        return self.__create_tables_from_model_class(model_cls)

@@ -13,7 +13,7 @@ class User(BaseModel):
 db = SQLiteDatabase(db_name="examples.sqlite3")
 user = User(name="Alice", email="alice@example.com")
 
-db.register_model(user)
+db.register_model(User)
 user.save()
 
 print(db.fetch_all("SELECT id, name, email FROM user"))
