@@ -1,4 +1,4 @@
-from models import User
+from example_project.models import User
 
 user = User(name="Alice", email="alice@example.com")
 user.save()

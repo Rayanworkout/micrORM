@@ -7,7 +7,7 @@ from types import NoneType, UnionType
 from typing import Any, Tuple, get_args, get_origin
 
 
-class SQLiteDatabase:
+class MicrORMDatabase:
     def __init__(
         self, db_name: str = "db.sqlite3", db_path: str | Path | None = None
     ) -> None:
@@ -55,27 +55,13 @@ class SQLiteDatabase:
 
         return base_path.resolve()
 
-    ############ QUERIES ############
-    def __execute_query(self, query, params=None) -> Tuple[bool, int, int]:
-        cursor = self.connection.cursor()
-        try:
-            if params:
-                cursor.execute(query, params)
-            else:
-                cursor.execute(query)
-            self.connection.commit()
-            return True, cursor.rowcount, cursor.lastrowid
-        except sqlite3.Error as e:
-            print(f"An error occurred executing query: {e}")
-            return False, cursor.rowcount, cursor.lastrowid
-
     ############ TABLES ############
     def __create_table(
         self, table_name: str, columns: list[str]
     ) -> Tuple[bool, int, int]:
         columns_sql = ", ".join(columns)
         query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns_sql})"
-        return self.__execute_query(query)
+        return self.execute_query(query)
 
     def __sqlite_type_from_annotation(self, annotation: Any) -> str:
         origin = get_origin(annotation)
@@ -187,14 +173,35 @@ class SQLiteDatabase:
         result = self.__create_tables_from_model_class(model_cls)
         setattr(model_cls, "__microrm_registered__", True)
         return result
+
     ############ PUBLIC ############
     def close(self):
         self.__close_connection()
 
     def execute_query(self, query, params=None) -> Tuple[bool, int, int]:
-        return self.__execute_query(query, params)
+        """Execute a write/query statement and commit changes.
+
+        Example:
+            db.execute_query("INSERT INTO users (name) VALUES (?)", ("Ada",))
+        """
+        cursor = self.connection.cursor()
+        try:
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            self.connection.commit()
+            return True, cursor.rowcount, cursor.lastrowid
+        except sqlite3.Error as e:
+            print(f"An error occurred executing query: {e}")
+            return False, cursor.rowcount, cursor.lastrowid
 
     def fetch_all(self, query, params=None):
+        """Return all rows for a SELECT query.
+
+        Example:
+            rows = db.fetch_all("SELECT id, name FROM users WHERE active = ?", (1,))
+        """
         try:
             cursor = self.connection.cursor()
             if params:
@@ -207,6 +214,11 @@ class SQLiteDatabase:
             return []
 
     def fetch_one(self, query, params=None):
+        """Return the first row for a SELECT query.
+
+        Example:
+            user = db.fetch_one("SELECT id, name FROM users WHERE id = ?", (1,))
+        """
         try:
             cursor = self.connection.cursor()
             if params:
