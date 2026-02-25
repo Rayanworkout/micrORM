@@ -101,8 +101,17 @@ class SQLiteDatabase:
         return "TEXT"
 
     def __create_tables_from_model_class(self, model_cls: type):
-        # We infer the table name from the __table__ attribute if it exists, otherwise we use model name
-        table_name = getattr(model_cls, "__table__", None) or model_cls.__name__.lower()
+        # Table name resolution order:
+        # 1) Meta.table or Meta.__table__
+        # 2) class-level __table__
+        # 3) model class name in lowercase
+        meta = getattr(model_cls, "Meta", None)
+        table_name = (
+            getattr(meta, "table", None)
+            or getattr(meta, "__table__", None)
+            or getattr(model_cls, "__table__", None)
+            or model_cls.__name__.lower()
+        )
         model_cls.__table__ = table_name
         model_cls._db = self  # enable model methods to call database methods
 
@@ -111,7 +120,6 @@ class SQLiteDatabase:
                 "Use class Meta directives (`pk`, `unique`) instead of `__pk__` / `__unique__`."
             )
 
-        meta = getattr(model_cls, "Meta", None)
         primary_key = getattr(meta, "pk", "id")
         unique_columns_raw = getattr(meta, "unique", None)
 
@@ -209,4 +217,3 @@ class SQLiteDatabase:
         except sqlite3.Error as e:
             print(f"An error occurred: {e}")
             return None
-

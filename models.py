@@ -15,4 +15,3 @@ class User(BaseModel):
 
     class Meta:
         database = db
-        __table__ = "test"
