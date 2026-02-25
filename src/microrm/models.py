@@ -1,5 +1,6 @@
 from dataclasses import fields
 from enum import Enum
+from typing import Any
 
 
 class BaseModel:
@@ -74,7 +75,9 @@ class BaseModel:
         construction and row-to-instance mapping logic.
         """
         if cls._db is None:
-            raise RuntimeError("Model is not registered. Call db.register_model(YourModelClass) first.")
+            raise RuntimeError(
+                "Model is not registered. Call db.register_model(YourModelClass) first."
+            )
 
         model_field_names = [f.name for f in fields(cls)]
         model_field_name_set = set(model_field_names)
@@ -111,13 +114,21 @@ class BaseModel:
         return cls._query(filters)
 
     @classmethod
-    def get(cls, **filters):
+    def get(
+        cls, raise_if_not_found: bool = False, **filters
+    ) -> Any | None | DoesNotExist:
         if not filters:
             raise ValueError("get() requires at least one keyword filter.")
 
         matches = cls._query(filters, limit=2)
         if not matches:
-            raise cls.DoesNotExist(f"{cls.__name__} matching query does not exist.")
+            if raise_if_not_found is True:
+                raise cls.DoesNotExist(f"{cls.__name__} matching query does not exist.")
+            else:
+                return None
+
         if len(matches) > 1:
-            raise cls.MultipleObjectsReturned(f"get() returned more than one {cls.__name__}.")
+            raise cls.MultipleObjectsReturned(
+                f"get() returned more than one {cls.__name__}."
+            )
         return matches[0]

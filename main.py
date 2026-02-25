@@ -8,5 +8,5 @@ db = SQLiteDatabase(db_name="examples.sqlite3")
 db.register_model(User)
 # user.save()
 
-found = User.get(id=4)
+found = User.get(id=1)
 print(found)
