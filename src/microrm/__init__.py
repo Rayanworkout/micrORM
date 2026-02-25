@@ -4,7 +4,7 @@ from dataclasses import fields, is_dataclass
 from enum import Enum
 from pathlib import Path
 from types import NoneType, UnionType
-from typing import Any, List, Tuple, get_args, get_origin
+from typing import Any, Tuple, get_args, get_origin
 
 
 class SQLiteDatabase:
@@ -18,54 +18,12 @@ class SQLiteDatabase:
         self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
         self.connection.execute("PRAGMA foreign_keys = ON")
 
-    def close(self):
+    ############ GLOBALS ############
+    def __close_connection(self):
         if self.connection:
             self.connection.close()
 
-    def execute_query(self, query, params=None) -> Tuple[bool, int, int]:
-        cursor = self.connection.cursor()
-        try:
-            if params:
-                cursor.execute(query, params)
-            else:
-                cursor.execute(query)
-            self.connection.commit()
-            return True, cursor.rowcount, cursor.lastrowid
-        except sqlite3.Error as e:
-            print(f"An error occurred executing query: {e}")
-            return False, cursor.rowcount, cursor.lastrowid
-
-    def fetch_all(self, query, params=None) -> List[Any]:
-        try:
-            cursor = self.connection.cursor()
-            if params:
-                cursor.execute(query, params)
-            else:
-                cursor.execute(query)
-            return cursor.fetchall()
-        except sqlite3.Error as e:
-            print(f"An error occurred: {e}")
-            return []
-
-    def fetch_one(self, query, params=None):
-        try:
-            cursor = self.connection.cursor()
-            if params:
-                cursor.execute(query, params)
-            else:
-                cursor.execute(query)
-            return cursor.fetchone()
-        except sqlite3.Error as e:
-            print(f"An error occurred: {e}")
-            return None
-
-    def __create_table(
-        self, table_name: str, columns: list[str]
-    ) -> Tuple[bool, int, int]:
-        columns_sql = ", ".join(columns)
-        query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns_sql})"
-        return self.execute_query(query)
-
+    ############ FILESYSTEM ############
     def __caller_script_dir(self) -> Path:
         current_file = Path(__file__).resolve()
         frame = inspect.currentframe()
@@ -96,6 +54,28 @@ class SQLiteDatabase:
             return (base_path / db_name).resolve()
 
         return base_path.resolve()
+
+    ############ QUERIES ############
+    def __execute_query(self, query, params=None) -> Tuple[bool, int, int]:
+        cursor = self.connection.cursor()
+        try:
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            self.connection.commit()
+            return True, cursor.rowcount, cursor.lastrowid
+        except sqlite3.Error as e:
+            print(f"An error occurred executing query: {e}")
+            return False, cursor.rowcount, cursor.lastrowid
+
+    ############ TABLES ############
+    def __create_table(
+        self, table_name: str, columns: list[str]
+    ) -> Tuple[bool, int, int]:
+        columns_sql = ", ".join(columns)
+        query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns_sql})"
+        return self.__execute_query(query)
 
     def __sqlite_type_from_annotation(self, annotation: Any) -> str:
         origin = get_origin(annotation)
@@ -171,6 +151,7 @@ class SQLiteDatabase:
 
         return self.__create_table(table_name, column_defs)
 
+    ############ PUBLIC ############
     def register_model(self, model_cls: type):
         if not isinstance(model_cls, type) or not is_dataclass(model_cls):
             raise TypeError(
