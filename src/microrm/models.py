@@ -1,4 +1,4 @@
-from dataclasses import fields
+from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
 from typing import Any
 
@@ -21,6 +21,11 @@ class BaseModel:
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
+
+        # Auto-convert subclasses to dataclasses so model fields get an __init__
+        # even when @dataclass is omitted.
+        if not is_dataclass(cls):
+            dataclass(cls)
 
         if "__pk__" in cls.__dict__ or "__unique__" in cls.__dict__:
             raise TypeError(
