@@ -33,7 +33,6 @@ By default, the table name is inferred from the model class name in lowercase.
 You can override it:
 
 ```python
-@dataclass
 class User(BaseModel):
     name: str
 
@@ -57,7 +56,6 @@ Examples of operations that trigger table creation:
 ## Basic Usage
 
 ```python
-from dataclasses import dataclass
 from typing import Optional
 
 from microrm import SQLiteDatabase
@@ -65,7 +63,6 @@ from microrm.models import BaseModel
 
 db = SQLiteDatabase(db_name="hello_world.sqlite")
 
-@dataclass
 class User(BaseModel):
     name: str
     email: Optional[str] = None
@@ -123,7 +120,6 @@ Model directives are declared in `Meta`:
 Example:
 
 ```python
-@dataclass
 class Account(BaseModel):
     email: str
 
