@@ -7,10 +7,10 @@ A tiny Python ORM with the minimal requirements to interact with a SQLite databa
 from dataclasses import dataclass
 from typing import Optional
 
-from microrm import SQLiteDatabase
+from microrm import MicrORMDatabase
 from microrm.models import BaseModel
 
-db = SQLiteDatabase(db_name="example.sqlite3")
+db = MicrORMDatabase(db_name="example.sqlite3")
 
 
 @dataclass
@@ -20,6 +20,9 @@ class User(BaseModel):
 
     class Meta:
         database = db
+
+
+u = User(name="rayan").save()
 ```
 
 ### Table Name Inference
